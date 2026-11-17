@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>C++ 豪华高并发聊天室</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .glass-container {
+            width: 450px;
+            height: 700px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .user-tag {
+            font-size: 14px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ff7e5f, #feb47b);
+            padding: 8px 16px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(255, 126, 95, 0.5);
+            color: white;
+            display: none;
+        }
+
+        .chat-box {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 75%;
+            padding: 12px 18px;
+            border-radius: 20px;
+            font-size: 15px;
+            word-wrap: break-word;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .msg-other {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+
+        .msg-mine {
+            background: linear-gradient(135deg, #00b09b, #96c93d);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+
+        .input-area {
+            padding: 20px;
+            display: flex;
+            gap: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        input {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 30px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            outline: none;
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        button {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00b09b, #96c93d);
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            transform: scale(1.1);
+        }
+
+        #login-mask {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(118, 75, 162, 0.95);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        #login-mask h2 {
+            color: white;
+            margin-bottom: 20px;
+            font-size: 24px;
+            letter-spacing: 2px;
+        }
+
+        #login-mask input {
+            width: 80%;
+            max-width: 300px;
+            text-align: center;
+            margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        #login-mask button {
+            width: 140px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="glass-container">
+        <div id="login-mask">
+            <h2>欢迎来到聊天室</h2>
+            <input type="text" id="username-input" placeholder="请输入你的昵称...">
+            <button onclick="login()">进入聊天</button>
+        </div>
+
+        <div class="header">
+            <span>🚀 C++ 聊天室</span>
+            <span class="user-tag" id="user-display">未登录</span>
+        </div>
+
+        <div class="chat-box" id="chat-box"></div>
+
+        <div class="input-area">
+            <input type="text" id="msg-input" placeholder="输入消息（用 @名字 可私聊）..." autocomplete="off">
+            <button onclick="sendMessage()">➤</button>
+        </div>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const msgInput = document.getElementById('msg-input');
+        const loginMask = document.getElementById('login-mask');
+        const usernameInput = document.getElementById('username-input');
+        const userDisplay = document.getElementById('user-display');
+
+        const renderedMessages = new Set();
+        let myUserId = "";
+        let pollInterval = null;
+
+        function login() {
+            const name = usernameInput.value.trim();
+            if (!name) { alert("请输入用户名！"); return; }
+
+            myUserId = name;
+
+            fetch('/login', {
+                method: 'POST',
+                body: encodeURIComponent(myUserId)
+            })
+                .then(res => res.text())
+                .then(data => {
+                    if (data === "OK") {
+                        loginMask.style.display = 'none';
+                        userDisplay.style.display = 'inline-block';
+                        userDisplay.innerText = "👤 " + myUserId;
+                        msgInput.placeholder = "说点什么...";
+                        startPolling();
+                    } else {
+                        alert("登录失败");
+                    }
+                });
+        }
+
+        function safeDecode(str) {
+            try {
+                return decodeURIComponent(str);
+            } catch (e) {
+                return str;
+            }
+        }
+
+        function appendMsg(text, isMine) {
+            const div = document.createElement('div');
+            div.className = 'message ' + (isMine ? 'msg-mine' : 'msg-other');
+            div.innerText = text;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function sendMessage() {
+            if (!myUserId) return;
+            const msg = msgInput.value.trim();
+            if (!msg) return;
+
+            appendMsg(msg, true);
+            renderedMessages.add(myUserId + "|||" + msg);
+            msgInput.value = '';
+
+            let finalMsg = msg;
+            if (msg.startsWith('@')) {
+                let spaceIndex = msg.indexOf(' ');
+                if (spaceIndex !== -1) {
+                    let receiverName = msg.substring(1, spaceIndex);
+                    let content = msg.substring(spaceIndex);
+                    finalMsg = '@' + encodeURIComponent(receiverName) + content;
+                }
+            }
+
+            const payload = encodeURIComponent(myUserId) + "|||" + finalMsg;
+            fetch('/send', { method: 'POST', body: payload });
+        }
+
+        msgInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+
+            pollInterval = setInterval(() => {
+                if (!myUserId) return;
+
+                fetch('/get_msgs', {
+                    method: 'POST',
+                    headers: { 'X-User': encodeURIComponent(myUserId) }
+                }).then(r => r.json()).then(data => {
+                    for (let i = 0; i < data.length; i++) {
+                        let incoming = data[i];
+                        let displaySender = safeDecode(incoming.sender);
+                        let displayText = safeDecode(incoming.text);
+
+                        // 去重指纹统一使用解码后的内容，保证自己发的消息被回显时也能识别出来
+                        let fingerprint = displaySender + "|||" + displayText;
+
+                        if (renderedMessages.has(fingerprint)) continue;
+                        renderedMessages.add(fingerprint);
+
+                        appendMsg(`[${displaySender}]: ${displayText}`, false);
+                    }
+                });
+            }, 800);
+        }
+    </script>
+</body>
+
+</html>

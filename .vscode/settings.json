@@ -1,14 +1,15 @@
 {
+  "editor.formatOnSave": true,
   "editor.quickSuggestions": {
-    "other": false,
+    "other": true,
     "comments": false,
     "strings": false
   },
-  "editor.suggestOnTriggerCharacters": false,
-  "editor.inlineSuggest.enabled": false,
-  "editor.wordBasedSuggestions": "off",
-  "editor.parameterHints.enabled": false,
-  "editor.hover.enabled": "off",
-  "C_Cpp.intelliSenseEngine": "Disabled",
-  "C_Cpp.autocomplete": "Disabled"
+  "editor.suggestOnTriggerCharacters": true,
+  "editor.inlineSuggest.enabled": true,
+  "editor.wordBasedSuggestions": "currentDocument",
+  "editor.parameterHints.enabled": true,
+  "editor.hover.enabled": "on",
+  "C_Cpp.intelliSenseEngine": "default",
+  "C_Cpp.autocomplete": "Default"
 }
