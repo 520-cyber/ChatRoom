@@ -1,0 +1,47 @@
+
+########## 延迟_200连接_4000msg每秒_4从Reactor
+登录完成: 200 条连接 / 4 个客户端线程，耗时 0.05s
+成功往返      : 32000 条消息 (3999 msg/s)
+收到广播帧    : 6420306 个 (802348 frames/s)
+失败连接      : 0
+RTT  p50      : 5.91 ms
+RTT  p90      : 15.53 ms
+RTT  p99      : 22.43 ms
+RTT  max      : 29.69 ms
+客户端 CPU    : user 4.5s / sys 14.2s（占 8 核 → 29%）
+服务端 CPU    : 2.70 核
+
+########## 延迟_200连接_4000msg每秒_8从Reactor
+登录完成: 200 条连接 / 4 个客户端线程，耗时 0.06s
+成功往返      : 32000 条消息 (3999 msg/s)
+收到广播帧    : 6420314 个 (802297 frames/s)
+失败连接      : 0
+RTT  p50      : 4.66 ms
+RTT  p90      : 14.67 ms
+RTT  p99      : 24.66 ms
+RTT  max      : 54.70 ms
+客户端 CPU    : user 3.1s / sys 9.5s（占 8 核 → 20%）
+服务端 CPU    : 2.75 核
+
+########## 延迟_1000连接_1000msg每秒_8从Reactor
+登录完成: 1000 条连接 / 8 个客户端线程，耗时 0.42s
+成功往返      : 8000 条消息 (999 msg/s)
+收到广播帧    : 8500670 个 (1061540 frames/s)
+失败连接      : 0
+RTT  p50      : 88.06 ms
+RTT  p90      : 330.65 ms
+RTT  p99      : 618.16 ms
+RTT  max      : 734.56 ms
+客户端 CPU    : user 5.3s / sys 18.7s（占 8 核 → 37%）
+服务端 CPU    : 3.81 核
+
+########## wrk_HTTP静态页_短连接
+Running 10s test @ http://127.0.0.1:8888/
+  4 threads and 200 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.31ms    1.37ms  21.21ms   87.48%
+    Req/Sec    21.14k     2.10k   25.42k    74.25%
+  842250 requests in 10.01s, 11.73GB read
+Requests/sec:  84128.22
+Transfer/sec:      1.17GB
+
