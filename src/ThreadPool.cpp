@@ -1,43 +1,49 @@
 #include "ThreadPool.h"
-ThreadPool::ThreadPool(std::size_t numThreads)
-{
-    for (std::size_t i = 0; i < numThreads; ++i)
-    {
-        workers.emplace_back([this]()
-                             { worker_loop(); });
+
+#include <iostream>
+
+ThreadPool::ThreadPool(std::size_t numThreads, std::size_t maxQueue)
+    : maxQueue_(maxQueue) {
+    if (numThreads == 0) numThreads = 1;
+    workers_.reserve(numThreads);
+    for (std::size_t i = 0; i < numThreads; ++i) {
+        workers_.emplace_back([this] { workerLoop(); });
     }
 }
-ThreadPool::~ThreadPool()
-{
+
+ThreadPool::~ThreadPool() {
     {
-        std::unique_lock<std::mutex> lock(queue_mutex);
-        stop = true;
+        std::lock_guard<std::mutex> lock(queue_mutex_);
+        stop_ = true;
     }
-    cv.notify_all();
-    for (std::thread &worker : workers)
-    {
-        if (worker.joinable())
-        {
-            worker.join();
-        }
+    cv_.notify_all();
+    for (auto &w : workers_) {
+        if (w.joinable()) w.join();
     }
 }
-void ThreadPool::worker_loop()
-{
-    while (true)
-    {
+
+void ThreadPool::workerLoop() {
+    while (true) {
         std::function<void()> task;
         {
-            std::unique_lock<std::mutex> lock(queue_mutex);
-            cv.wait(lock, [this]()
-                    { return stop || !tasks.empty(); });
-            if (stop && tasks.empty())
-            {
-                return;
-            }
-            task = std::move(tasks.front());
-            tasks.pop();
+            std::unique_lock<std::mutex> lock(queue_mutex_);
+            // 谓词版 wait：免疫虚假唤醒
+            cv_.wait(lock, [this] { return stop_ || !tasks_.empty(); });
+
+            // 收到停止信号：队列已空才退出，剩下的任务先跑完（优雅关闭）
+            if (stop_ && tasks_.empty()) return;
+
+            task = std::move(tasks_.front());
+            tasks_.pop();
         }
-        task();
+
+        // 任何任务抛异常都不能 terminate 整个进程
+        try {
+            task();
+        } catch (const std::exception &e) {
+            std::cerr << "[ThreadPool] 任务异常: " << e.what() << std::endl;
+        } catch (...) {
+            std::cerr << "[ThreadPool] 任务未知异常" << std::endl;
+        }
     }
 }

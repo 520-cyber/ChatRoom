@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>C++ 豪华高并发聊天室</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ 高并发聊天室 · Epoll 主从 Reactor</title>
     <style>
         * {
             box-sizing: border-box;
@@ -22,8 +23,8 @@
         }
 
         .glass-container {
-            width: 450px;
-            height: 700px;
+            width: 460px;
+            height: 720px;
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
@@ -33,52 +34,75 @@
             display: flex;
             flex-direction: column;
             position: relative;
+            overflow: hidden;
         }
 
         .header {
-            padding: 20px;
+            padding: 18px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             color: white;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        .user-tag {
-            font-size: 14px;
-            font-weight: bold;
-            background: linear-gradient(135deg, #ff7e5f, #feb47b);
-            padding: 8px 16px;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(255, 126, 95, 0.5);
-            color: white;
-            display: none;
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            font-weight: normal;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff5c5c;
+            box-shadow: 0 0 8px #ff5c5c;
+            transition: 0.3s;
+        }
+
+        .dot.on {
+            background: #4ade80;
+            box-shadow: 0 0 8px #4ade80;
         }
 
         .chat-box {
             flex: 1;
-            padding: 20px;
+            padding: 18px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
+        }
+
+        .chat-box::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-box::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
         }
 
         .message {
-            max-width: 75%;
-            padding: 12px 18px;
-            border-radius: 20px;
+            max-width: 78%;
+            padding: 10px 16px;
+            border-radius: 18px;
             font-size: 15px;
+            line-height: 1.5;
             word-wrap: break-word;
-            animation: fadeIn 0.3s ease-out;
+            overflow-wrap: anywhere;
+            animation: fadeIn 0.2s ease-out;
         }
 
         @keyframes fadeIn {
             from {
                 opacity: 0;
-                transform: translateY(10px);
+                transform: translateY(8px);
             }
 
             to {
@@ -88,7 +112,7 @@
         }
 
         .msg-other {
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.92);
             color: #333;
             align-self: flex-start;
             border-bottom-left-radius: 5px;
@@ -101,79 +125,117 @@
             border-bottom-right-radius: 5px;
         }
 
+        .msg-private {
+            border: 2px solid #ffd166;
+        }
+
+        .msg-sys {
+            align-self: center;
+            background: rgba(0, 0, 0, 0.18);
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 12px;
+            padding: 5px 14px;
+            border-radius: 12px;
+        }
+
+        .sender {
+            display: block;
+            font-size: 11px;
+            opacity: 0.65;
+            margin-bottom: 3px;
+        }
+
         .input-area {
-            padding: 20px;
+            padding: 16px;
             display: flex;
             gap: 10px;
             border-top: 1px solid rgba(255, 255, 255, 0.2);
             background: rgba(255, 255, 255, 0.1);
         }
 
-        input {
+        input[type=text] {
             flex: 1;
-            padding: 15px;
+            padding: 14px;
             border: none;
-            border-radius: 30px;
+            border-radius: 26px;
             background: rgba(255, 255, 255, 0.2);
             color: white;
+            font-size: 14px;
             outline: none;
         }
 
-        input::placeholder {
-            color: rgba(255, 255, 255, 0.7);
+        input[type=text]::placeholder {
+            color: rgba(255, 255, 255, 0.65);
         }
 
         button {
-            width: 50px;
-            height: 50px;
+            width: 52px;
+            height: 48px;
             border: none;
             border-radius: 50%;
             background: linear-gradient(135deg, #00b09b, #96c93d);
             color: white;
-            font-size: 20px;
+            font-size: 18px;
             cursor: pointer;
-            transition: 0.3s;
+            transition: 0.2s;
         }
 
         button:hover {
-            transform: scale(1.1);
+            transform: scale(1.08);
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            transform: none;
         }
 
         #login-mask {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(118, 75, 162, 0.95);
+            inset: 0;
+            background: rgba(118, 75, 162, 0.96);
             border-radius: 20px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 10;
+            padding: 24px;
         }
 
         #login-mask h2 {
             color: white;
-            margin-bottom: 20px;
-            font-size: 24px;
+            margin-bottom: 8px;
+            font-size: 22px;
             letter-spacing: 2px;
         }
 
+        #login-mask p {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            margin-bottom: 22px;
+        }
+
         #login-mask input {
-            width: 80%;
-            max-width: 300px;
+            width: 82%;
+            max-width: 320px;
             text-align: center;
-            margin-bottom: 20px;
-            background: rgba(0, 0, 0, 0.2);
+            margin-bottom: 16px;
+            background: rgba(0, 0, 0, 0.22);
         }
 
         #login-mask button {
-            width: 140px;
-            border-radius: 30px;
-            font-size: 16px;
+            width: 150px;
+            border-radius: 26px;
+            font-size: 15px;
             font-weight: bold;
+        }
+
+        #login-error {
+            color: #ffd166;
+            font-size: 12px;
+            height: 18px;
+            margin-top: 12px;
         }
     </style>
 </head>
@@ -182,130 +244,244 @@
     <div class="glass-container">
         <div id="login-mask">
             <h2>欢迎来到聊天室</h2>
-            <input type="text" id="username-input" placeholder="请输入你的昵称...">
-            <button onclick="login()">进入聊天</button>
+            <p>WebSocket 长连接 · Epoll 主从 Reactor</p>
+            <input type="text" id="username-input" maxlength="16" placeholder="请输入你的昵称...">
+            <button id="login-btn" onclick="doLogin()">进入聊天</button>
+            <div id="login-error"></div>
         </div>
 
         <div class="header">
             <span>🚀 C++ 聊天室</span>
-            <span class="user-tag" id="user-display">未登录</span>
+            <div class="header-right">
+                <span id="online-count">在线 0</span>
+                <span class="dot" id="conn-dot"></span>
+                <span id="conn-text">未连接</span>
+            </div>
         </div>
 
         <div class="chat-box" id="chat-box"></div>
 
         <div class="input-area">
-            <input type="text" id="msg-input" placeholder="输入消息（用 @名字 可私聊）..." autocomplete="off">
-            <button onclick="sendMessage()">➤</button>
+            <input type="text" id="msg-input" maxlength="400" autocomplete="off"
+                placeholder="输入消息，@昵称 可私聊..." disabled>
+            <button id="send-btn" onclick="sendMessage()" disabled>➤</button>
         </div>
     </div>
 
     <script>
         const chatBox = document.getElementById('chat-box');
         const msgInput = document.getElementById('msg-input');
+        const sendBtn = document.getElementById('send-btn');
         const loginMask = document.getElementById('login-mask');
         const usernameInput = document.getElementById('username-input');
-        const userDisplay = document.getElementById('user-display');
+        const loginError = document.getElementById('login-error');
+        const connDot = document.getElementById('conn-dot');
+        const connText = document.getElementById('conn-text');
+        const onlineCount = document.getElementById('online-count');
+        const loginBtn = document.getElementById('login-btn');
 
-        const renderedMessages = new Set();
-        let myUserId = "";
-        let pollInterval = null;
+        let ws = null;              // WebSocket 实例
+        let myName = '';            // 登录成功后的昵称
+        let wantLogin = false;      // 是否处于“已登录、需要保持在线”的状态
+        let reconnectDelay = 1000;  // 重连退避
+        let reconnectTimer = null;
 
-        function login() {
-            const name = usernameInput.value.trim();
-            if (!name) { alert("请输入用户名！"); return; }
+        // ---------- 连接管理 ----------
 
-            myUserId = name;
-
-            fetch('/login', {
-                method: 'POST',
-                body: encodeURIComponent(myUserId)
-            })
-                .then(res => res.text())
-                .then(data => {
-                    if (data === "OK") {
-                        loginMask.style.display = 'none';
-                        userDisplay.style.display = 'inline-block';
-                        userDisplay.innerText = "👤 " + myUserId;
-                        msgInput.placeholder = "说点什么...";
-                        startPolling();
-                    } else {
-                        alert("登录失败");
-                    }
-                });
+        function wsUrl() {
+            const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+            return `${scheme}://${location.host}/ws`;
         }
 
-        function safeDecode(str) {
-            try {
-                return decodeURIComponent(str);
-            } catch (e) {
-                return str;
+        function setConnState(online, text) {
+            connDot.classList.toggle('on', online);
+            connText.textContent = text;
+        }
+
+        function connect() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+            setConnState(false, '连接中');
+
+            ws = new WebSocket(wsUrl());
+
+            ws.onopen = () => {
+                setConnState(true, '已连接');
+                if (wantLogin && myName) {
+                    // 断线重连后自动恢复身份
+                    sendJson({ type: 'login', name: myName });
+                }
+            };
+
+            ws.onmessage = (ev) => {
+                let data;
+                try {
+                    data = JSON.parse(ev.data);
+                } catch (e) {
+                    return;
+                }
+                handleMessage(data);
+            };
+
+            ws.onerror = () => { /* onclose 会统一处理 */ };
+
+            ws.onclose = () => {
+                setConnState(false, '已断开');
+                ws = null;
+                if (wantLogin) scheduleReconnect();
+            };
+        }
+
+        function scheduleReconnect() {
+            if (reconnectTimer) return;
+            setConnState(false, `重连中 ${Math.round(reconnectDelay / 1000)}s`);
+            reconnectTimer = setTimeout(() => {
+                reconnectTimer = null;
+                connect();
+            }, reconnectDelay);
+            reconnectDelay = Math.min(reconnectDelay * 2, 8000);
+        }
+
+        function sendJson(obj) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(obj));
             }
         }
 
-        function appendMsg(text, isMine) {
+        // ---------- 业务 ----------
+
+        function doLogin() {
+            const name = usernameInput.value.trim();
+            if (!name) {
+                loginError.textContent = '请输入昵称';
+                return;
+            }
+            loginError.textContent = '';
+            loginBtn.disabled = true;
+
+            myName = name;
+            wantLogin = true;
+            connect();
+
+            // 如果连接还没建立好，onopen 里会发；这里处理已经连上的情况
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                sendJson({ type: 'login', name });
+            }
+        }
+
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'login_ok':
+                    myName = data.name || myName;
+                    loginMask.style.display = 'none';
+                    msgInput.disabled = false;
+                    sendBtn.disabled = false;
+                    msgInput.placeholder = `说点什么...（${myName}）`;
+                    onlineCount.textContent = `在线 ${data.online || 1}`;
+                    loginBtn.disabled = false;
+                    reconnectDelay = 1000;
+                    msgInput.focus();
+                    break;
+
+                case 'history':
+                    chatBox.innerHTML = '';
+                    (data.msgs || []).forEach(m => appendMessage(m.from, m.text, m.from === myName, m.pm));
+                    break;
+
+                case 'msg':
+                    // 服务端是唯一数据源：自己发的群聊/私聊也会回显，前端不再本地插入，
+                    // 从结构上消除了“重复消息”和“刷新后丢失”的问题。
+                    appendMessage(data.from, data.text, data.from === myName, data.pm);
+                    break;
+
+                case 'sys':
+                    appendSystem(data.text);
+                    break;
+
+                case 'error':
+                    if (!loginMask.style.display || loginMask.style.display === 'none') {
+                        appendSystem('⚠️ ' + data.text);
+                    } else {
+                        loginError.textContent = data.text;
+                        loginBtn.disabled = false;
+                        wantLogin = false;
+                        if (ws) ws.close();
+                    }
+                    break;
+
+                case 'pong':
+                    break;
+            }
+        }
+
+        function appendMessage(from, text, mine, isPrivate) {
             const div = document.createElement('div');
-            div.className = 'message ' + (isMine ? 'msg-mine' : 'msg-other');
-            div.innerText = text;
+            div.className = 'message ' + (mine ? 'msg-mine' : 'msg-other');
+            if (isPrivate) div.classList.add('msg-private');
+
+            if (!mine) {
+                const sender = document.createElement('span');
+                sender.className = 'sender';
+                sender.textContent = from + (isPrivate ? ' · 私聊' : '');
+                div.appendChild(sender);
+            }
+
+            // textContent 而不是 innerHTML：天然免疫 XSS
+            const body = document.createElement('span');
+            body.textContent = text;
+            div.appendChild(body);
+
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function appendSystem(text) {
+            const div = document.createElement('div');
+            div.className = 'msg-sys';
+            div.textContent = text;
             chatBox.appendChild(div);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
         function sendMessage() {
-            if (!myUserId) return;
-            const msg = msgInput.value.trim();
-            if (!msg) return;
+            if (!myName) return;
+            const text = msgInput.value.trim();
+            if (!text) return;
 
-            appendMsg(msg, true);
-            renderedMessages.add(myUserId + "|||" + msg);
-            msgInput.value = '';
-
-            let finalMsg = msg;
-            if (msg.startsWith('@')) {
-                let spaceIndex = msg.indexOf(' ');
-                if (spaceIndex !== -1) {
-                    let receiverName = msg.substring(1, spaceIndex);
-                    let content = msg.substring(spaceIndex);
-                    finalMsg = '@' + encodeURIComponent(receiverName) + content;
-                }
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                appendSystem('⚠️ 连接已断开，消息未发送');
+                return;
             }
 
-            const payload = encodeURIComponent(myUserId) + "|||" + finalMsg;
-            fetch('/send', { method: 'POST', body: payload });
+            sendJson({ type: 'msg', text });
+            msgInput.value = '';
+            msgInput.focus();
         }
 
-        msgInput.addEventListener('keypress', function (e) {
+        // ---------- 交互 ----------
+
+        msgInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 sendMessage();
             }
         });
 
-        function startPolling() {
-            if (pollInterval) clearInterval(pollInterval);
+        usernameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                doLogin();
+            }
+        });
 
-            pollInterval = setInterval(() => {
-                if (!myUserId) return;
-
-                fetch('/get_msgs', {
-                    method: 'POST',
-                    headers: { 'X-User': encodeURIComponent(myUserId) }
-                }).then(r => r.json()).then(data => {
-                    for (let i = 0; i < data.length; i++) {
-                        let incoming = data[i];
-                        let displaySender = safeDecode(incoming.sender);
-                        let displayText = safeDecode(incoming.text);
-
-                        // 去重指纹统一使用解码后的内容，保证自己发的消息被回显时也能识别出来
-                        let fingerprint = displaySender + "|||" + displayText;
-
-                        if (renderedMessages.has(fingerprint)) continue;
-                        renderedMessages.add(fingerprint);
-
-                        appendMsg(`[${displaySender}]: ${displayText}`, false);
-                    }
-                });
-            }, 800);
-        }
+        // 页面重新可见时，如果连接已经断了就立刻重连，不用等退避
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && wantLogin && (!ws || ws.readyState !== WebSocket.OPEN)) {
+                reconnectDelay = 1000;
+                connect();
+            }
+        });
     </script>
 </body>
 

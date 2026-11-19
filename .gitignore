@@ -1,1 +1,16 @@
+# 构建产物
 build/
+build-*/
+cmake-build-*/
+
+# 运行时产物
+chat_history.log
+*.log
+
+# 编辑器
+.vscode/
+.vscode-server/
+.cache/
+
+# 重构前的旧版本，仅供参考，不参与构建
+legacy/
