@@ -204,3 +204,13 @@ setarch $(uname -m) -R ./build-tsan/server 8888 2
 eventfd 唤醒去重——4 / 8 从 Reactor 的吞吐分别提升 **57% / 66%**，
 而服务端 CPU 几乎不变。
 
+---
+
+## 9. 文档索引
+
+| 文档 | 内容 |
+| --- | --- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 分层、线程模型、逐文件职责、关键调用链、设计取舍、面试提纲 |
+| [`docs/BENCHMARK.md`](docs/BENCHMARK.md) | 压测环境、方法论、五组数据、优化前后对比、局限性 |
+| [`docs/bench-raw/`](docs/bench-raw/) | 压测的原始终端输出与复现命令 |
+
